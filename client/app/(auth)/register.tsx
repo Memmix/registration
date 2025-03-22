@@ -1,4 +1,5 @@
 import { isAuthenticatedAtom } from '@/state/auth'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
 import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
@@ -57,7 +58,7 @@ export default function RegisterScreen() {
 			const response = await fetch('http://10.0.2.2:5000/api/register', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, email, password, confirmPassword })
+				body: JSON.stringify({ name, email, password })
 			})
 
 			const data = await response.json()
@@ -66,9 +67,12 @@ export default function RegisterScreen() {
 				throw new Error(data.message || 'Ошибка регистрации')
 			}
 
-			Alert.alert('Успех', `${data.message}`)
+			// Сохраняем токен
+			await AsyncStorage.setItem('authToken', data.token)
 			setIsAuthenticated(true)
 			router.replace('/(app)')
+
+			Alert.alert('Успех', `${data.message}`)
 			resetForm()
 		} catch (error) {
 			console.error('Ошибка запроса:', error)

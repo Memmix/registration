@@ -1,4 +1,5 @@
 import { isAuthenticatedAtom } from '@/state/auth'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
 import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
@@ -46,9 +47,12 @@ export default function LoginScreen() {
 				throw new Error(data.message || 'Ошибка входа')
 			}
 
+			// Сохраняем токен
+			await AsyncStorage.setItem('authToken', data.token)
 			setIsAuthenticated(true)
-			Alert.alert('Добро пожаловать!')
 			router.replace('/(app)')
+
+			Alert.alert('Добро пожаловать!')
 			resetForm()
 		} catch (error) {
 			console.error('Ошибка запроса:', error)
