@@ -41,13 +41,24 @@ export default function LoginScreen() {
 				body: JSON.stringify({ email, password })
 			})
 
-			const data = await response.json()
+			console.log('HTTP статус входа:', response.status)
 
-			if (!response.ok) {
-				throw new Error(data.message || 'Ошибка входа')
+			const textResponse = await response.text() // Читаем ответ как текст
+			console.log('Ответ сервера (сырой):', textResponse)
+
+			let data
+			try {
+				data = JSON.parse(textResponse) // Парсим JSON
+			} catch (jsonError) {
+				throw new Error('Ошибка парсинга JSON: ' + jsonError)
 			}
 
-			// Сохраняем токен
+			console.log('Ответ сервера (разобранный JSON):', data)
+
+			if (!data.token) {
+				throw new Error('Токен не получен')
+			}
+
 			await AsyncStorage.setItem('authToken', data.token)
 			setIsAuthenticated(true)
 			router.replace('/(app)')
@@ -55,7 +66,7 @@ export default function LoginScreen() {
 			Alert.alert('Добро пожаловать!')
 			resetForm()
 		} catch (error) {
-			console.error('Ошибка запроса:', error)
+			console.error('Ошибка запроса (вход):', error)
 			Alert.alert('Ошибка', 'Произошла ошибка на сервере')
 		} finally {
 			setLoading(false)

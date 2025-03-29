@@ -61,13 +61,21 @@ export default function RegisterScreen() {
 				body: JSON.stringify({ name, email, password })
 			})
 
-			const data = await response.json()
+			console.log('HTTP статус регистрации:', response.status)
 
 			if (!response.ok) {
-				throw new Error(data.message || 'Ошибка регистрации')
+				const errorText = await response.text()
+				console.error('Ошибка сервера (регистрация):', errorText)
+				throw new Error('Ошибка регистрации: ' + errorText)
 			}
 
-			// Сохраняем токен
+			const data = await response.json()
+			console.log('Ответ сервера (регистрация):', data)
+
+			if (!data.token) {
+				throw new Error('Токен не получен')
+			}
+
 			await AsyncStorage.setItem('authToken', data.token)
 			setIsAuthenticated(true)
 			router.replace('/(app)')
@@ -75,7 +83,7 @@ export default function RegisterScreen() {
 			Alert.alert('Успех', `${data.message}`)
 			resetForm()
 		} catch (error) {
-			console.error('Ошибка запроса:', error)
+			console.error('Ошибка запроса (регистрация):', error)
 			Alert.alert('Ошибка', 'Произошла ошибка на сервере')
 		} finally {
 			setLoading(false)

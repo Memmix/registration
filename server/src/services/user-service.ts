@@ -33,6 +33,9 @@ export default class UserService {
 
 		const token = TokenService.generateToken(user.id)
 		await TokenService.saveToken(user.id, token)
+
+		// Добавляем возврат токена
+		return { token }
 	}
 }
 

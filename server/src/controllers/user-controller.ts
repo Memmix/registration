@@ -10,8 +10,15 @@ class UserController {
 				return
 			}
 
-			const user = await UserService.register(name, email, password)
-			res.status(201).json({ message: 'Пользователь зарегистрирован', user })
+			// Получаем `token` из `UserService.register`
+			const { message, token } = await UserService.register(
+				name,
+				email,
+				password
+			)
+
+			// Возвращаем `token` клиенту
+			res.status(201).json({ message, token })
 		} catch (error) {
 			res.status(400).json({ message: (error as Error).message })
 		}
@@ -25,8 +32,9 @@ class UserController {
 				return
 			}
 
-			const token = await UserService.login(email, password)
-			res.status(200).json({ message: 'Вход выполнен', token })
+			// Деструктурируем token из результата
+			const { token } = await UserService.login(email, password)
+			res.status(200).json({ message: 'Вход выполнен', token }) // Теперь клиент получит токен
 		} catch (error) {
 			res.status(401).json({ message: (error as Error).message })
 		}
