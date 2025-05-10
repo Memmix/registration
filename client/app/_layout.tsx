@@ -1,28 +1,28 @@
 import { Stack } from 'expo-router'
-import { useAtom } from 'jotai'
-import { isAuthenticatedAtom } from './state/auth'
-
+import { useEffect } from 'react'
+import { ThemeProvider } from './(settings)/theme-context'
+import { useAuthStore } from './state/auth'
 export default function RootLayout() {
-	const [isAuthenticated] = useAtom(isAuthenticatedAtom)
+	const { isAuthenticated, checkAuth } = useAuthStore()
+
+	useEffect(() => {
+		checkAuth()
+	}, [])
 
 	return (
-		<Stack>
-			{!isAuthenticated ? (
+		<ThemeProvider>
+			<Stack>
+				<Stack.Screen name='(workout)' options={{ headerShown: false }} />
+				<Stack.Screen name='(settings)' options={{ headerShown: false }} />
 				<Stack.Screen
-					name='(auth)'
-					options={{
-						headerShown: false
-					}}
-				></Stack.Screen>
-			) : (
+					name={isAuthenticated ? '(app)' : '(auth)'}
+					options={{ headerShown: false }}
+				/>
 				<Stack.Screen
-					name='(app)'
-					options={{
-						headerShown: false
-					}}
-				></Stack.Screen>
-			)}
-			<Stack.Screen name='+not-found' options={{ title: 'Not Found' }} />
-		</Stack>
+					name='+not-found'
+					options={{ title: 'Not Found', headerShown: false }}
+				/>
+			</Stack>
+		</ThemeProvider>
 	)
 }

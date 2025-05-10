@@ -1,11 +1,13 @@
-import { isAuthenticatedAtom } from '@/state/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
-import { useAtom } from 'jotai'
+import { useAuthStore } from './../state/auth'
+
 import { useEffect, useState } from 'react'
 import {
 	ActivityIndicator,
 	Alert,
+	Image,
+	StyleSheet,
 	Text,
 	TextInput,
 	TouchableOpacity,
@@ -19,7 +21,7 @@ const MAX_LENGTH = 25
 export default function LoginScreen() {
 	const { email, password, setEmail, setPassword, resetForm } = useLoginStore()
 	const [loading, setLoading] = useState(false)
-	const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
+	const { isAuthenticated, setAuthenticated, checkAuth } = useAuthStore()
 
 	useEffect(() => {
 		if (isAuthenticated) {
@@ -27,9 +29,22 @@ export default function LoginScreen() {
 		}
 	}, [isAuthenticated])
 
+	const decodeJWT = (token: string): { userId: string; exp: number } => {
+		const base64Url = token.split('.')[1]
+		const base64 = base64Url.replace('-', '+').replace('_', '/')
+		const decodedData = JSON.parse(atob(base64))
+		return decodedData
+	}
+
 	const handleLogin = async () => {
 		if (!email || !password) {
 			Alert.alert('Ошибка', 'Все поля должны быть заполнены')
+			return
+		}
+
+		const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
+		if (!emailRegex.test(email)) {
+			Alert.alert('Ошибка', 'Неверный формат email')
 			return
 		}
 
@@ -41,72 +56,119 @@ export default function LoginScreen() {
 				body: JSON.stringify({ email, password })
 			})
 
-			console.log('HTTP статус входа:', response.status)
-
-			const textResponse = await response.text() // Читаем ответ как текст
-			console.log('Ответ сервера (сырой):', textResponse)
-
+			const textResponse = await response.text()
 			let data
 			try {
-				data = JSON.parse(textResponse) // Парсим JSON
+				data = JSON.parse(textResponse)
+				console.log('API Response:', data)
 			} catch (jsonError) {
 				throw new Error('Ошибка парсинга JSON: ' + jsonError)
 			}
 
-			console.log('Ответ сервера (разобранный JSON):', data)
-
-			if (!data.token) {
+			if (!data.accessToken) {
 				throw new Error('Токен не получен')
 			}
 
-			await AsyncStorage.setItem('authToken', data.token)
-			setIsAuthenticated(true)
+			const decodedToken = decodeJWT(data.accessToken)
+			const userId = decodedToken.userId
+
+			if (!userId) {
+				throw new Error('Не удалось получить userId из токена')
+			}
+
+			await AsyncStorage.setItem('authToken', data.accessToken)
+			await AsyncStorage.setItem('userId', userId)
+			await AsyncStorage.setItem(
+				'tokenExpiration',
+				JSON.stringify(decodedToken.exp)
+			)
+
+			setAuthenticated(true)
 			router.replace('/(app)')
 
-			Alert.alert('Добро пожаловать!')
 			resetForm()
 		} catch (error) {
 			console.error('Ошибка запроса (вход):', error)
-			Alert.alert('Ошибка', 'Произошла ошибка на сервере')
+			Alert.alert('Ошибка')
 		} finally {
 			setLoading(false)
 		}
 	}
 
 	return (
-		<View
-			style={{
-				flex: 1,
-				justifyContent: 'center',
-				alignItems: 'center',
-				padding: 16
-			}}
-		>
+		<View style={styles.container}>
+			<Image source={require('../../assets/logo.png')} style={styles.logo} />
+			<Text style={styles.title}>Вход</Text>
 			<TextInput
 				placeholder='Email'
+				placeholderTextColor='#B19CD9'
 				value={email}
 				onChangeText={setEmail}
 				keyboardType='email-address'
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				maxLength={MAX_LENGTH}
 			/>
 			<TextInput
 				placeholder='Пароль'
+				placeholderTextColor='#B19CD9'
 				value={password}
 				onChangeText={setPassword}
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				secureTextEntry
 				maxLength={MAX_LENGTH}
 			/>
 			<Button title='Войти' onPress={handleLogin} disabled={loading} />
-			{loading && <ActivityIndicator size='large' color='#0000ff' />}
+			{loading && <ActivityIndicator size='large' color='#B19CD9' />}
 
 			<TouchableOpacity
 				onPress={() => router.push('/register')}
-				style={{ marginTop: 16 }}
+				style={styles.linkContainer}
 			>
-				<Text style={{ color: 'blue' }}>Нет аккаунта? Зарегистрируйтесь</Text>
+				<Text style={styles.linkText}>Нет аккаунта? Зарегистрируйтесь</Text>
 			</TouchableOpacity>
 		</View>
 	)
 }
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+		backgroundColor: '#1E1E2E'
+	},
+	title: {
+		fontSize: 28,
+		fontWeight: 'bold',
+		color: '#B19CD9',
+		marginBottom: 20
+	},
+	input: {
+		width: '85%',
+		padding: 12,
+		borderWidth: 2,
+		borderColor: '#B19CD9',
+		borderRadius: 8,
+		backgroundColor: '#2A2A3D',
+		color: '#FFFFFF',
+		fontSize: 16,
+		marginBottom: 16
+	},
+	linkContainer: {
+		marginTop: 20
+	},
+	linkText: {
+		color: '#B19CD9',
+		fontSize: 16,
+		textDecorationLine: 'underline'
+	},
+	logo: {
+		position: 'absolute',
+		top: 20,
+		right: 20,
+		width: 60,
+		height: 60,
+		resizeMode: 'contain'
+	}
+})

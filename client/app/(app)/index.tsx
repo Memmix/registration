@@ -1,130 +1,201 @@
-import { isAuthenticatedAtom } from '@/state/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as ImagePicker from 'expo-image-picker'
-import * as Location from 'expo-location'
-import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
-import { useAtom } from 'jotai'
-import { useEffect, useState } from 'react'
-import { Alert, Button, Image, Text, TextInput, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import {
+	FlatList,
+	ScrollView,
+	Text,
+	TouchableOpacity,
+	View,
+	useWindowDimensions
+} from 'react-native'
+import { io } from 'socket.io-client'
+import { useThemedStyles } from './../useThemedStyles'
+
+type WorkoutDay = {
+	day: number
+	time: number
+	calories: number
+	date: string // новое поле
+}
+
+type Workout = {
+	title: string
+	days: WorkoutDay[]
+}
 
 export default function Home() {
-	const [, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
-	const [image, setImage] = useState<string | null>(null)
-	const [title, setTitle] = useState('')
-	const [body, setBody] = useState('')
-	const [delay, setDelay] = useState('5') // Время в секундах
+	const [userName, setUserName] = useState<string>('Загрузка...')
+	const [workouts, setWorkouts] = useState<Workout[]>([])
+	const { styles, colors } = useThemedStyles()
+	const { width } = useWindowDimensions()
 
 	useEffect(() => {
-		const requestPermissions = async () => {
-			const { status: cameraStatus } =
-				await ImagePicker.requestCameraPermissionsAsync()
-			const { status: mediaStatus } =
-				await ImagePicker.requestMediaLibraryPermissionsAsync()
-			const { status: locationStatus } =
-				await Location.requestForegroundPermissionsAsync()
-			const { status: notificationStatus } =
-				await Notifications.requestPermissionsAsync()
-
-			if (
-				cameraStatus !== 'granted' ||
-				mediaStatus !== 'granted' ||
-				locationStatus !== 'granted' ||
-				notificationStatus !== 'granted'
-			) {
-				Alert.alert(
-					'Ошибка',
-					'Некоторые разрешения не были получены. Это может повлиять на работу приложения.'
-				)
-			}
-		}
-
-		requestPermissions()
+		loadUserData()
 	}, [])
 
-	const handleLogout = async () => {
-		try {
-			await AsyncStorage.removeItem('authToken')
-			setIsAuthenticated(false)
-			router.replace('/(auth)/login')
-		} catch (error) {
-			console.error('Ошибка при выходе')
-		}
-	}
+	const socketRef = useRef<any>(null)
 
-	const pickAvatar = async () => {
-		const result = await ImagePicker.launchImageLibraryAsync({
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.8
-		})
-		if (!result.canceled) {
-			setImage(result.assets[0].uri)
-		}
-	}
+	useEffect(() => {
+		const init = async () => {
+			const userId = await AsyncStorage.getItem('userId')
+			if (!userId) return
 
-	const scheduleNotification = async () => {
-		await Notifications.scheduleNotificationAsync({
-			content: {
-				title: title || 'Уведомление',
-				body: body || 'Это ваше запланированное уведомление!',
-				sound: true
-			},
-			trigger: {
-				type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-				seconds: 5,
-				repeats: false
+			await fetchUserName(userId)
+
+			const socket = io('http://10.0.2.2:5000')
+			socketRef.current = socket
+
+			socket.on('connect', () => {
+				socket.emit('getStats', userId)
+			})
+			console.log('Сокет подключён, ID:', socket.id)
+			socket.on('statsUpdate', (data: any) => {
+				if (Array.isArray(data.exercises)) {
+					setWorkouts(prev => [...data.exercises])
+				} else {
+					setWorkouts([])
+				}
+			})
+		}
+
+		init()
+
+		return () => {
+			if (socketRef.current) {
+				socketRef.current.disconnect()
 			}
-		})
-		Alert.alert('Готово', 'Уведомление запланировано!')
+		}
+	}, [])
+
+	const loadUserData = async () => {
+		try {
+			const userId = await AsyncStorage.getItem('userId')
+			if (!userId) return
+
+			await fetchUserName(userId)
+			await fetchWorkouts(userId)
+		} catch (error) {
+			console.log('Ошибка загрузки данных пользователя:', error)
+		}
 	}
+
+	const fetchUserName = async (userId: string) => {
+		try {
+			const response = await fetch(
+				`http://10.0.2.2:5000/api/currentUser/${userId}`
+			)
+			if (response.ok) {
+				const data = await response.json()
+				setUserName(data.name)
+			}
+		} catch (error) {
+			console.log('Ошибка при получении имени пользователя:', error)
+		}
+	}
+
+	const fetchWorkouts = async (userId: string) => {
+		try {
+			const response = await fetch(`http://10.0.2.2:5000/api/${userId}`)
+			if (response.ok) {
+				const data = await response.json()
+				if (Array.isArray(data.exercises)) {
+					setWorkouts(data.exercises)
+				} else {
+					setWorkouts([])
+				}
+			}
+		} catch (error) {
+			console.log('Ошибка при получении статистики тренировок:', error)
+		}
+	}
+
+	const calculateTotalStats = () => {
+		let totalCalories = 0
+		let totalDuration = 0
+
+		if (Array.isArray(workouts)) {
+			workouts.forEach(ex => {
+				if (Array.isArray(ex.days)) {
+					ex.days.forEach(day => {
+						totalCalories += day.calories || 0
+						totalDuration += day.time || 0
+					})
+				}
+			})
+		}
+
+		return { totalCalories, totalDuration }
+	}
+
+	const { totalCalories, totalDuration } = calculateTotalStats()
 
 	return (
-		<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-			<Text style={{ fontSize: 30 }}>Home</Text>
-			<Button title='Pick Avatar' onPress={pickAvatar} />
-			{image && (
-				<Image
-					source={{ uri: image }}
-					style={{ width: 150, height: 150, borderRadius: 75, marginTop: 20 }}
-				/>
-			)}
-			<TextInput
-				placeholder='Заголовок'
-				value={title}
-				onChangeText={setTitle}
-				style={{
-					borderBottomWidth: 1,
-					width: '80%',
-					marginVertical: 10,
-					padding: 5
-				}}
-			/>
-			<TextInput
-				placeholder='Текст уведомления'
-				value={body}
-				onChangeText={setBody}
-				style={{
-					borderBottomWidth: 1,
-					width: '80%',
-					marginVertical: 10,
-					padding: 5
-				}}
-			/>
-			<TextInput
-				placeholder='Время в секундах'
-				value={delay}
-				onChangeText={setDelay}
-				keyboardType='numeric'
-				style={{
-					borderBottomWidth: 1,
-					width: '80%',
-					marginVertical: 10,
-					padding: 5
-				}}
-			/>
-			<Button title='Создать уведомление' onPress={scheduleNotification} />
-			<Button title='Logout' onPress={handleLogout} />
-		</View>
+		<ScrollView
+			style={{ flex: 1, backgroundColor: colors.background }}
+			contentContainerStyle={{
+				flexGrow: 1,
+				paddingBottom: 40,
+				paddingHorizontal: width * 0.05
+			}}
+		>
+			<View style={{ flex: 1 }}>
+				{/* Greeting */}
+				<View style={styles.greetingContainer}>
+					<Text style={styles.greeting}>Привет, {userName}</Text>
+				</View>
+
+				{/* Stats */}
+				<View style={styles.statsBox}>
+					<Text style={styles.statsTitle}>Общая статистика</Text>
+					<Text style={styles.statText}>
+						Общее время тренировок: {totalDuration} секунд
+					</Text>
+					<Text style={styles.statText}>
+						Сожжённые калории: {totalCalories} ккал
+					</Text>
+				</View>
+
+				{/* Workouts List */}
+				<View style={styles.tableContainer}>
+					<Text style={styles.tableTitle}>Тренировки</Text>
+					<FlatList
+						data={workouts}
+						scrollEnabled={false}
+						renderItem={({ item }) => {
+							const totalTime =
+								item.days?.reduce((sum, d) => sum + d.time, 0) || 0
+							const totalCalories =
+								item.days?.reduce((sum, d) => sum + d.calories, 0) || 0
+							const lastDate = item.days?.[item.days.length - 1]?.date
+
+							return (
+								<View style={styles.tableRow}>
+									<Text style={styles.tableCell}>{item.title}</Text>
+									<Text style={styles.tableCell}>
+										дней: {item.days?.length ?? 0}
+									</Text>
+									<Text style={styles.tableCell}>{totalTime} сек</Text>
+									<Text style={styles.tableCell}>{totalCalories} ккал</Text>
+									<Text style={styles.tableCell}>
+										последняя:{' '}
+										{lastDate ? new Date(lastDate).toLocaleDateString() : '—'}
+									</Text>
+								</View>
+							)
+						}}
+						keyExtractor={item => item.title}
+					/>
+				</View>
+
+				{/* Start Workout Button */}
+				<TouchableOpacity
+					onPress={() => router.push('(workout)/train')}
+					style={[styles.button, { width: '100%', alignSelf: 'center' }]}
+				>
+					<Text style={styles.buttonText}>Начать тренировку</Text>
+				</TouchableOpacity>
+			</View>
+		</ScrollView>
 	)
 }

@@ -1,7 +1,6 @@
-import React from 'react'
 import { Text, TextInput, View } from 'react-native'
-import { InputProps } from '../../types'
 import styles from './styles'
+import { InputProps } from './types'
 function Input({
 	label,
 	value,

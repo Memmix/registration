@@ -1,19 +1,19 @@
-import { isAuthenticatedAtom } from '@/state/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
-import { useAtom } from 'jotai'
 import { useEffect, useState } from 'react'
 import {
 	ActivityIndicator,
 	Alert,
+	Image,
+	StyleSheet,
 	Text,
 	TextInput,
 	TouchableOpacity,
 	View
 } from 'react-native'
+import { useAuthStore } from '../state/auth'
 import useRegisterStore from '../state/userStore'
 import Button from './../components/Button/Button'
-
 const MAX_LENGTH = 25
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -29,9 +29,14 @@ export default function RegisterScreen() {
 		setConfirmPassword,
 		resetForm
 	} = useRegisterStore()
-
+	const decodeJWT = (token: string): { userId: string; exp: number } => {
+		const base64Url = token.split('.')[1]
+		const base64 = base64Url.replace('-', '+').replace('_', '/')
+		const decodedData = JSON.parse(atob(base64))
+		return decodedData
+	}
 	const [loading, setLoading] = useState(false)
-	const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom)
+	const { isAuthenticated, setAuthenticated, checkAuth } = useAuthStore()
 
 	useEffect(() => {
 		if (isAuthenticated) {
@@ -72,15 +77,23 @@ export default function RegisterScreen() {
 			const data = await response.json()
 			console.log('Ответ сервера (регистрация):', data)
 
-			if (!data.token) {
+			if (!data.accessToken || !data.refreshToken) {
 				throw new Error('Токен не получен')
 			}
+			const decodedToken = decodeJWT(data.accessToken)
+			const userId = decodedToken.userId
+			try {
+				await AsyncStorage.setItem('authToken', data.accessToken)
+				await AsyncStorage.setItem('refreshToken', data.refreshToken)
+				await AsyncStorage.setItem('userId', userId)
+				console.log('Токены сохранены успешно')
+			} catch (error) {
+				console.error('Ошибка сохранения токена:', error)
+			}
 
-			await AsyncStorage.setItem('authToken', data.token)
-			setIsAuthenticated(true)
+			setAuthenticated(true)
 			router.replace('/(app)')
 
-			Alert.alert('Успех', `${data.message}`)
 			resetForm()
 		} catch (error) {
 			console.error('Ошибка запроса (регистрация):', error)
@@ -91,42 +104,41 @@ export default function RegisterScreen() {
 	}
 
 	return (
-		<View
-			style={{
-				flex: 1,
-				justifyContent: 'center',
-				alignItems: 'center',
-				padding: 16
-			}}
-		>
+		<View style={styles.container}>
+			<Image source={require('../../assets/logo.png')} style={styles.logo} />
+			<Text style={styles.title}>Регистрация</Text>
 			<TextInput
 				placeholder='Имя'
+				placeholderTextColor='#B19CD9'
 				value={name}
 				onChangeText={setName}
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				maxLength={MAX_LENGTH}
 			/>
 			<TextInput
 				placeholder='Email'
+				placeholderTextColor='#B19CD9'
 				value={email}
 				onChangeText={setEmail}
 				keyboardType='email-address'
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				maxLength={MAX_LENGTH}
 			/>
 			<TextInput
 				placeholder='Пароль'
+				placeholderTextColor='#B19CD9'
 				value={password}
 				onChangeText={setPassword}
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				secureTextEntry
 				maxLength={MAX_LENGTH}
 			/>
 			<TextInput
 				placeholder='Подтвердите пароль'
+				placeholderTextColor='#B19CD9'
 				value={confirmPassword}
 				onChangeText={setConfirmPassword}
-				style={{ borderBottomWidth: 1, width: '80%', marginBottom: 16 }}
+				style={styles.input}
 				secureTextEntry
 				maxLength={MAX_LENGTH}
 			/>
@@ -135,14 +147,56 @@ export default function RegisterScreen() {
 				onPress={handleRegister}
 				disabled={loading}
 			/>
-			{loading && <ActivityIndicator size='large' color='#0000ff' />}
-
+			{loading && <ActivityIndicator size='large' color='#B19CD9' />}
 			<TouchableOpacity
 				onPress={() => router.push('/login')}
-				style={{ marginTop: 16 }}
+				style={styles.linkContainer}
 			>
-				<Text style={{ color: 'blue' }}>Уже есть аккаунт? Войти</Text>
+				<Text style={styles.linkText}>Уже есть аккаунт? Войти</Text>
 			</TouchableOpacity>
 		</View>
 	)
 }
+
+const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 20,
+		backgroundColor: '#1E1E2E'
+	},
+	title: {
+		fontSize: 28,
+		fontWeight: 'bold',
+		color: '#B19CD9',
+		marginBottom: 20
+	},
+	input: {
+		width: '85%',
+		padding: 12,
+		borderWidth: 2,
+		borderColor: '#B19CD9',
+		borderRadius: 8,
+		backgroundColor: '#2A2A3D',
+		color: '#FFFFFF',
+		fontSize: 16,
+		marginBottom: 16
+	},
+	linkContainer: {
+		marginTop: 20
+	},
+	linkText: {
+		color: '#B19CD9',
+		fontSize: 16,
+		textDecorationLine: 'underline'
+	},
+	logo: {
+		position: 'absolute',
+		top: 20,
+		right: 20,
+		width: 60,
+		height: 60,
+		resizeMode: 'contain'
+	}
+})
