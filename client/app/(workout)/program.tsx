@@ -20,13 +20,13 @@ export default function ProgramScreen() {
 	const hasSentProgram = useRef(false)
 	const router = useRouter()
 	const { styles } = useThemedStyles()
-	const socket = useRef(io('http://10.0.2.2:5000')).current
+	const socket = useRef(io('https://registration-production-3e08.up.railway.app')).current
 	const fetchCompletedDays = async () => {
 		const userId = await AsyncStorage.getItem('userId')
 		if (!userId || !title) return
 
 		try {
-			const res = await fetch(`http://10.0.2.2:5000/api/${userId}`)
+			const res = await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}`)
 			if (res.ok) {
 				const data = await res.json()
 				const program = data.exercises.find((e: any) => e.title === title)
@@ -111,7 +111,7 @@ export default function ProgramScreen() {
 
 			try {
 				const checkResponse = await fetch(
-					`http://10.0.2.2:5000/api/workouts/user/${userId}`
+					`https://registration-production-3e08.up.railway.app/api/workouts/user/${userId}`
 				)
 				if (checkResponse.ok) {
 					const data = await checkResponse.json()
@@ -119,7 +119,7 @@ export default function ProgramScreen() {
 					if (exists) return
 				}
 
-				await fetch('http://10.0.2.2:5000/api/workouts', {
+				await fetch('https://registration-production-3e08.up.railway.app/api/workouts', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function ProgramScreen() {
 					})
 				})
 
-				await fetch('http://10.0.2.2:5000/api/stats', {
+				await fetch('https://registration-production-3e08.up.railway.app/api/stats', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
@@ -182,11 +182,11 @@ export default function ProgramScreen() {
 	const handleReset = async () => {
 		const userId = await AsyncStorage.getItem('userId')
 		if (userId && title) {
-			await fetch(`http://10.0.2.2:5000/api/workouts/${userId}/${title}`, {
+			await fetch(`https://registration-production-3e08.up.railway.app/api/workouts/${userId}/${title}`, {
 				method: 'DELETE'
 			})
 
-			await fetch(`http://10.0.2.2:5000/api/${userId}/delete/${title}`, {
+			await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}/delete/${title}`, {
 				method: 'DELETE'
 			})
 		}

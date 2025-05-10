@@ -69,14 +69,14 @@ export default function TrainingScreen() {
 		const caloriesBurned = Math.round(totalReps * 0.3)
 
 		try {
-			await fetch('http://10.0.2.2:5000/api/workouts/complete', {
+			await fetch('https://registration-production-3e08.up.railway.app/api/workouts/complete', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ userId, exerciseTitle: title, dayIndex })
 			})
 			socket.emit('workoutCompleted', { userId, title, dayIndex })
 
-			const res = await fetch(`http://10.0.2.2:5000/api/${userId}/update`, {
+			const res = await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}/update`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

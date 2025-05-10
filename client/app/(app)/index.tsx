@@ -43,7 +43,7 @@ export default function Home() {
 
 			await fetchUserName(userId)
 
-			const socket = io('http://10.0.2.2:5000')
+			const socket = io('https://registration-production-3e08.up.railway.app')
 			socketRef.current = socket
 
 			socket.on('connect', () => {
@@ -83,7 +83,7 @@ export default function Home() {
 	const fetchUserName = async (userId: string) => {
 		try {
 			const response = await fetch(
-				`http://10.0.2.2:5000/api/currentUser/${userId}`
+				`https://registration-production-3e08.up.railway.app/api/currentUser/${userId}`
 			)
 			if (response.ok) {
 				const data = await response.json()
@@ -96,7 +96,7 @@ export default function Home() {
 
 	const fetchWorkouts = async (userId: string) => {
 		try {
-			const response = await fetch(`http://10.0.2.2:5000/api/${userId}`)
+			const response = await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}`)
 			if (response.ok) {
 				const data = await response.json()
 				if (Array.isArray(data.exercises)) {

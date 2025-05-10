@@ -46,7 +46,7 @@ const ExerciseStatsScreen = () => {
 					return
 				}
 
-				const res = await axios.get(`http://10.0.2.2:5000/api/${userId}`)
+				const res = await axios.get(`https://registration-production-3e08.up.railway.app/api/${userId}`)
 				const stats = res.data
 
 				const exerciseStats = stats.exercises.find(

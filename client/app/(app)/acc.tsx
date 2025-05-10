@@ -58,7 +58,7 @@ export default function AccountScreen() {
 				if (!userId) return
 
 				const response = await fetch(
-					`http://10.0.2.2:5000/api/currentUser/${userId}`
+					`https://registration-production-3e08.up.railway.app/api/currentUser/${userId}`
 				)
 				if (!response.ok) return
 
@@ -98,7 +98,7 @@ export default function AccountScreen() {
 		} as any)
 
 		const uploadResponse = await fetch(
-			`http://10.0.2.2:5000/api/upload/${userId}`,
+			`https://registration-production-3e08.up.railway.app/api/upload/${userId}`,
 			{
 				method: 'POST',
 				body: formData,
@@ -124,7 +124,7 @@ export default function AccountScreen() {
 			const userId = await AsyncStorage.getItem('userId')
 			if (!userId) return
 
-			const response = await fetch(`http://10.0.2.2:5000/api/users/${userId}`, {
+			const response = await fetch(`https://registration-production-3e08.up.railway.app/api/users/${userId}`, {
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json'
