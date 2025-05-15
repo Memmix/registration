@@ -60,11 +60,14 @@ export default function RegisterScreen() {
 
 		setLoading(true)
 		try {
-			const response = await fetch('https://registration-production-3e08.up.railway.app/api/register', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name, email, password })
-			})
+			const response = await fetch(
+				'https://registration-production-3e08.up.railway.app/api/register',
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name, email, password })
+				}
+			)
 
 			console.log('HTTP статус регистрации:', response.status)
 
