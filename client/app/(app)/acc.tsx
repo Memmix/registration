@@ -124,16 +124,19 @@ export default function AccountScreen() {
 			const userId = await AsyncStorage.getItem('userId')
 			if (!userId) return
 
-			const response = await fetch(`https://registration-production-3e08.up.railway.app/api/users/${userId}`, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					name: editedName,
-					email: editedEmail
-				})
-			})
+			const response = await fetch(
+				`https://registration-production-3e08.up.railway.app/api/users/${userId}`,
+				{
+					method: 'PATCH',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						name: editedName,
+						email: editedEmail
+					})
+				}
+			)
 
 			if (!response.ok) {
 				const errorData = await response.json()

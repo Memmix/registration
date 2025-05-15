@@ -27,7 +27,8 @@ mongoose
 	.then(() => console.log('База данных подключена'))
 	.catch(err => console.error('Ошибка подключения к БД:', err))
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+const uploadDir = path.join(__dirname, '../../uploads')
+app.use('/uploads', express.static(uploadDir))
 
 io.on('connection', socket => {
 	console.log('Пользователь подключился')

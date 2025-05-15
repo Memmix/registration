@@ -121,7 +121,7 @@ class UserController {
 
 			const filePath = `/uploads/${req.file.filename}`
 
-			const fullImageUrl = `http://10.0.2.2:5000${filePath}`
+			const fullImageUrl = `https://registration-production-3e08.up.railway.app${filePath}`
 
 			const user = await UserService.saveProfileImage(userId, fullImageUrl)
 
