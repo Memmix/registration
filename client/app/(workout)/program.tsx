@@ -5,8 +5,8 @@ import {
 	Dimensions,
 	FlatList,
 	Modal,
-	ScrollView,
 	Text,
+	TextInput,
 	TouchableOpacity,
 	View
 } from 'react-native'
@@ -243,9 +243,9 @@ export default function ProgramScreen() {
 
 		try {
 			await fetch(
-				'https://registration-production-3e08.up.railway.app/api/goal',
+				'https://registration-production-3e08.up.railway.app/api/updateGoal',
 				{
-					method: 'PUT',
+					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						userId,
@@ -255,7 +255,20 @@ export default function ProgramScreen() {
 				}
 			)
 
+			console.log('Сохраняем цель:', goalValue)
 			setModalVisible(false)
+
+			// Подгрузи новую цель снова с сервера (на всякий случай)
+			const res = await fetch(
+				`https://registration-production-3e08.up.railway.app/api/workouts/user/${userId}`
+			)
+			if (res.ok) {
+				const data = await res.json()
+				const program = data.exercises.find((e: any) => e.title === title)
+				if (program && program.finalGoal) {
+					setGoalValue(program.finalGoal.toString())
+				}
+			}
 		} catch (err) {
 			console.error('Ошибка при обновлении цели:', err)
 		}
@@ -263,28 +276,32 @@ export default function ProgramScreen() {
 
 	return (
 		<View style={styles.container}>
-			<View style={styles.headerRow}>
-				<Text style={[styles.title, { fontSize: 22 }]}>Программа: {title}</Text>
-				<View style={{ flexDirection: 'row', gap: 10 }}>
-					<TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-						<Text style={styles.resetButtonText}>Сбросить</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						onPress={() => setModalVisible(true)}
-						style={styles.resetButton}
-					>
-						<Text style={styles.resetButtonText}>Изменить цель</Text>
-					</TouchableOpacity>
-				</View>
-			</View>
-
 			<FlatList
 				data={days}
 				keyExtractor={item => item.id}
 				showsVerticalScrollIndicator={false}
-				snapToAlignment='start'
-				decelerationRate='fast'
-				contentContainerStyle={styles.flatListContent}
+				contentContainerStyle={[styles.flatListContent, { paddingBottom: 100 }]} // место для кнопки
+				ListHeaderComponent={
+					<View style={[styles.headerRow, { flexWrap: 'wrap', gap: 10 }]}>
+						<Text style={[styles.title, { fontSize: 22, flexShrink: 1 }]}>
+							Программа: {title}
+						</Text>
+						<View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+							<TouchableOpacity
+								onPress={handleReset}
+								style={styles.resetButton}
+							>
+								<Text style={styles.resetButtonText}>Сбросить</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								onPress={() => setModalVisible(true)}
+								style={styles.resetButton}
+							>
+								<Text style={styles.resetButtonText}>Изменить цель</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				}
 				renderItem={({ item }) => {
 					const completed = isDayCompleted(item.week, item.day)
 
@@ -324,6 +341,32 @@ export default function ProgramScreen() {
 				}}
 			/>
 
+			{/* Кнопка "Назад" закреплённая снизу и меньше */}
+			<View
+				style={{
+					position: 'absolute',
+					bottom: 20,
+					left: 20,
+					right: 20,
+					alignItems: 'center'
+				}}
+			>
+				<TouchableOpacity
+					style={[
+						styles.startButton,
+						{
+							width: '50%', // Сделаем её меньше
+							borderRadius: 12,
+							paddingVertical: 10
+						}
+					]}
+					onPress={() => router.back()}
+				>
+					<Text style={styles.startButtonText}>Назад</Text>
+				</TouchableOpacity>
+			</View>
+
+			{/* Модалка изменения цели */}
 			<Modal visible={isModalVisible} animationType='slide' transparent>
 				<View
 					style={{
@@ -344,28 +387,46 @@ export default function ProgramScreen() {
 						<Text
 							style={{ fontSize: 18, marginBottom: 10, textAlign: 'center' }}
 						>
-							Выберите цель (повт.)
+							Выберите или введите цель (повт.)
 						</Text>
-						<ScrollView
-							style={{ height: 150 }}
+
+						{/* Ввод кастомного значения */}
+						<TextInput
+							value={goalValue}
+							onChangeText={setGoalValue}
+							keyboardType='numeric'
+							placeholder='Введите свою цель'
+							style={{
+								borderWidth: 1,
+								borderColor: '#ccc',
+								borderRadius: 8,
+								padding: 10,
+								marginBottom: 15,
+								textAlign: 'center',
+								fontSize: 18
+							}}
+						/>
+
+						<FlatList
+							data={Array.from({ length: 101 }, (_, i) => (i + 50).toString())}
+							keyExtractor={item => item}
+							style={{ maxHeight: 200 }}
 							contentContainerStyle={{ alignItems: 'center' }}
-						>
-							{Array.from({ length: 101 }, (_, i) => i + 50).map(n => (
+							renderItem={({ item }) => (
 								<TouchableOpacity
-									key={n}
-									onPress={() => setGoalValue(n.toString())}
+									onPress={() => setGoalValue(item)}
 									style={{
 										paddingVertical: 8,
 										backgroundColor:
-											goalValue === n.toString() ? '#ddd' : 'transparent',
+											goalValue === item ? '#ddd' : 'transparent',
 										width: '100%',
 										alignItems: 'center'
 									}}
 								>
-									<Text style={{ fontSize: 20 }}>{n}</Text>
+									<Text style={{ fontSize: 20 }}>{item}</Text>
 								</TouchableOpacity>
-							))}
-						</ScrollView>
+							)}
+						/>
 
 						<View
 							style={{
