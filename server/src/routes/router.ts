@@ -43,4 +43,7 @@ router.delete('/:userId/delete/:exerciseTitle', (req, res) => {
 router.patch('/users/:userId', (req, res) => {
 	UserController.updateProfile(req, res)
 })
+router.patch('/updateGoal', (req, res) => {
+	WorkoutController.updateGoal(req, res)
+})
 export default router

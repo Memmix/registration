@@ -5,6 +5,7 @@ interface ExerciseProgram {
 	title: string
 	startMaxReps: number
 	completedDays: number[]
+	finalGoal: number
 }
 
 export interface IWorkoutProgram extends Document {
@@ -16,7 +17,8 @@ const ExerciseProgramSchema = new Schema<ExerciseProgram>(
 	{
 		title: { type: String, required: true },
 		startMaxReps: { type: Number, required: true },
-		completedDays: { type: [Number], default: [] }
+		completedDays: { type: [Number], default: [] },
+		finalGoal: { type: Number, default: 100 } // добавлено
 	},
 	{ _id: false }
 )

@@ -85,4 +85,22 @@ export default class WorkoutController {
 				.json({ message: 'Ошибка при завершении тренировки' })
 		}
 	}
+	static async updateGoal(req: Request, res: Response): Promise<Response> {
+		try {
+			const { userId, exerciseTitle, finalGoal } = req.body
+			if (!userId || !exerciseTitle || typeof finalGoal !== 'number') {
+				return res.status(400).json({ message: 'Неверные данные' })
+			}
+
+			const workout = await WorkoutService.updateFinalGoal(
+				userId,
+				exerciseTitle,
+				finalGoal
+			)
+
+			return res.json({ message: 'Цель обновлена', workout })
+		} catch (err) {
+			return res.status(500).json({ message: 'Ошибка при обновлении цели' })
+		}
+	}
 }

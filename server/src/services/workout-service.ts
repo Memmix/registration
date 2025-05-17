@@ -21,7 +21,7 @@ export class WorkoutService {
 
 	static async createWorkout(data: {
 		userId: string
-		exercises: { title: string; startMaxReps: number }[]
+		exercises: { title: string; startMaxReps: number; finalGoal?: number }[]
 	}) {
 		try {
 			let workout = await Workout.findOne({ userId: data.userId }) // 🔧 исправлено
@@ -31,7 +31,8 @@ export class WorkoutService {
 					userId: data.userId,
 					exercises: data.exercises.map(ex => ({
 						...ex,
-						completedDays: []
+						completedDays: [],
+						finalGoal: ex.finalGoal ?? 100
 					}))
 				})
 			} else {
@@ -42,7 +43,8 @@ export class WorkoutService {
 					if (!alreadyExists) {
 						workout.exercises.push({
 							...ex,
-							completedDays: []
+							completedDays: [],
+							finalGoal: ex.finalGoal ?? 100
 						})
 					}
 				}
@@ -125,6 +127,26 @@ export class WorkoutService {
 				console.error('Стек ошибки:', err.stack)
 			}
 			throw new Error('Ошибка при обновлении завершённого дня')
+		}
+	}
+	static async updateFinalGoal(
+		userId: string,
+		exerciseTitle: string,
+		newGoal: number
+	) {
+		try {
+			const workout = await Workout.findOne({ userId })
+			if (!workout) throw new Error('Программа не найдена')
+
+			const exercise = workout.exercises.find(e => e.title === exerciseTitle)
+			if (!exercise) throw new Error('Упражнение не найдено')
+
+			exercise.finalGoal = newGoal
+			await workout.save()
+			return workout
+		} catch (err) {
+			console.error('Ошибка при обновлении цели:', err)
+			throw new Error('Ошибка при обновлении цели')
 		}
 	}
 }

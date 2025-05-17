@@ -1,32 +1,42 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-
 import {
 	Dimensions,
 	FlatList,
+	Modal,
+	ScrollView,
 	Text,
 	TouchableOpacity,
 	View
 } from 'react-native'
 import { io } from 'socket.io-client'
 import { useThemedStyles } from './../useThemedStyles'
+
 const { width } = Dimensions.get('window')
 
 export default function ProgramScreen() {
 	const { title } = useLocalSearchParams<{ title: string }>()
 	const [maxReps, setMaxReps] = useState<string | null>(null)
 	const [completedDays, setCompletedDays] = useState<number[]>([])
+	const [goalValue, setGoalValue] = useState('125')
+	const [isModalVisible, setModalVisible] = useState(false)
+
 	const hasSentProgram = useRef(false)
 	const router = useRouter()
 	const { styles } = useThemedStyles()
-	const socket = useRef(io('https://registration-production-3e08.up.railway.app')).current
+	const socket = useRef(
+		io('https://registration-production-3e08.up.railway.app')
+	).current
+
 	const fetchCompletedDays = async () => {
 		const userId = await AsyncStorage.getItem('userId')
 		if (!userId || !title) return
 
 		try {
-			const res = await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}`)
+			const res = await fetch(
+				`https://registration-production-3e08.up.railway.app/api/${userId}`
+			)
 			if (res.ok) {
 				const data = await res.json()
 				const program = data.exercises.find((e: any) => e.title === title)
@@ -38,19 +48,39 @@ export default function ProgramScreen() {
 		}
 	}
 
+	const fetchFinalGoal = async () => {
+		const userId = await AsyncStorage.getItem('userId')
+		if (!userId || !title) return
+
+		try {
+			const res = await fetch(
+				`https://registration-production-3e08.up.railway.app/api/workouts/user/${userId}`
+			)
+			if (res.ok) {
+				const data = await res.json()
+				const found = data.exercises.find((e: any) => e.title === title)
+				if (found?.finalGoal) {
+					setGoalValue(found.finalGoal.toString())
+				}
+			}
+		} catch (err) {
+			console.error('Ошибка при загрузке цели:', err)
+		}
+	}
+
 	useEffect(() => {
 		const handleUpdateWorkout = (data: any) => {
 			if (data && data.title === title) {
-				fetchCompletedDays() // обновляем список завершённых дней
+				fetchCompletedDays()
 			}
 		}
 
 		socket.on('updateWorkout', handleUpdateWorkout)
-
 		return () => {
 			socket.off('updateWorkout', handleUpdateWorkout)
 		}
 	}, [title])
+
 	useEffect(() => {
 		const fetchMaxReps = async () => {
 			if (!title) return
@@ -65,7 +95,8 @@ export default function ProgramScreen() {
 			}
 		}
 		fetchMaxReps()
-		fetchCompletedDays() // запускаем один раз при старте
+		fetchCompletedDays()
+		fetchFinalGoal()
 	}, [title])
 
 	const days = useMemo(() => {
@@ -73,9 +104,8 @@ export default function ProgramScreen() {
 
 		const daysArray = []
 		const startReps = Number(maxReps)
-
 		const totalTrainings = 6 * 3
-		const finalGoal = 125
+		const finalGoal = Number(goalValue)
 		let currentTotal = startReps * 1.5
 		const growthFactor = Math.pow(
 			finalGoal / currentTotal,
@@ -102,7 +132,7 @@ export default function ProgramScreen() {
 		}
 
 		return daysArray
-	}, [maxReps])
+	}, [maxReps, goalValue])
 
 	useEffect(() => {
 		const createWorkoutProgram = async () => {
@@ -119,34 +149,41 @@ export default function ProgramScreen() {
 					if (exists) return
 				}
 
-				await fetch('https://registration-production-3e08.up.railway.app/api/workouts', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						userId,
-						exercises: [
-							{
-								title,
-								startMaxReps: Number(maxReps),
-								completedDays: []
-							}
-						]
-					})
-				})
+				await fetch(
+					'https://registration-production-3e08.up.railway.app/api/workouts',
+					{
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							userId,
+							exercises: [
+								{
+									title,
+									startMaxReps: Number(maxReps),
+									finalGoal: Number(goalValue),
+									completedDays: []
+								}
+							]
+						})
+					}
+				)
 
-				await fetch('https://registration-production-3e08.up.railway.app/api/stats', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						userId,
-						exercises: [
-							{
-								title,
-								days: []
-							}
-						]
-					})
-				})
+				await fetch(
+					'https://registration-production-3e08.up.railway.app/api/stats',
+					{
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							userId,
+							exercises: [
+								{
+									title,
+									days: []
+								}
+							]
+						})
+					}
+				)
 			} catch (err) {
 				console.error('Ошибка при создании программы или статистики:', err)
 			}
@@ -156,7 +193,7 @@ export default function ProgramScreen() {
 			hasSentProgram.current = true
 			createWorkoutProgram()
 		}
-	}, [maxReps, title])
+	}, [maxReps, title, goalValue])
 
 	const isDayCompleted = (week: number, day: number) => {
 		const index = (week - 1) * 3 + (day - 1)
@@ -182,26 +219,63 @@ export default function ProgramScreen() {
 	const handleReset = async () => {
 		const userId = await AsyncStorage.getItem('userId')
 		if (userId && title) {
-			await fetch(`https://registration-production-3e08.up.railway.app/api/workouts/${userId}/${title}`, {
-				method: 'DELETE'
-			})
+			await fetch(
+				`https://registration-production-3e08.up.railway.app/api/workouts/${userId}/${title}`,
+				{
+					method: 'DELETE'
+				}
+			)
 
-			await fetch(`https://registration-production-3e08.up.railway.app/api/${userId}/delete/${title}`, {
-				method: 'DELETE'
-			})
+			await fetch(
+				`https://registration-production-3e08.up.railway.app/api/${userId}/delete/${title}`,
+				{
+					method: 'DELETE'
+				}
+			)
 		}
-
 		await AsyncStorage.removeItem(`maxReps_${title}`)
 		router.replace({ pathname: '/(workout)/preworksetting', params: { title } })
+	}
+
+	const handleSaveGoal = async () => {
+		const userId = await AsyncStorage.getItem('userId')
+		if (!userId || !title) return
+
+		try {
+			await fetch(
+				'https://registration-production-3e08.up.railway.app/api/goal',
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						userId,
+						exerciseTitle: title,
+						finalGoal: Number(goalValue)
+					})
+				}
+			)
+
+			setModalVisible(false)
+		} catch (err) {
+			console.error('Ошибка при обновлении цели:', err)
+		}
 	}
 
 	return (
 		<View style={styles.container}>
 			<View style={styles.headerRow}>
 				<Text style={[styles.title, { fontSize: 22 }]}>Программа: {title}</Text>
-				<TouchableOpacity onPress={handleReset} style={styles.resetButton}>
-					<Text style={styles.resetButtonText}>Сбросить</Text>
-				</TouchableOpacity>
+				<View style={{ flexDirection: 'row', gap: 10 }}>
+					<TouchableOpacity onPress={handleReset} style={styles.resetButton}>
+						<Text style={styles.resetButtonText}>Сбросить</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						onPress={() => setModalVisible(true)}
+						style={styles.resetButton}
+					>
+						<Text style={styles.resetButtonText}>Изменить цель</Text>
+					</TouchableOpacity>
+				</View>
 			</View>
 
 			<FlatList
@@ -249,6 +323,67 @@ export default function ProgramScreen() {
 					)
 				}}
 			/>
+
+			<Modal visible={isModalVisible} animationType='slide' transparent>
+				<View
+					style={{
+						flex: 1,
+						backgroundColor: 'rgba(0,0,0,0.6)',
+						justifyContent: 'center',
+						alignItems: 'center'
+					}}
+				>
+					<View
+						style={{
+							backgroundColor: 'white',
+							padding: 20,
+							borderRadius: 16,
+							width: '80%'
+						}}
+					>
+						<Text
+							style={{ fontSize: 18, marginBottom: 10, textAlign: 'center' }}
+						>
+							Выберите цель (повт.)
+						</Text>
+						<ScrollView
+							style={{ height: 150 }}
+							contentContainerStyle={{ alignItems: 'center' }}
+						>
+							{Array.from({ length: 101 }, (_, i) => i + 50).map(n => (
+								<TouchableOpacity
+									key={n}
+									onPress={() => setGoalValue(n.toString())}
+									style={{
+										paddingVertical: 8,
+										backgroundColor:
+											goalValue === n.toString() ? '#ddd' : 'transparent',
+										width: '100%',
+										alignItems: 'center'
+									}}
+								>
+									<Text style={{ fontSize: 20 }}>{n}</Text>
+								</TouchableOpacity>
+							))}
+						</ScrollView>
+
+						<View
+							style={{
+								flexDirection: 'row',
+								justifyContent: 'space-around',
+								marginTop: 15
+							}}
+						>
+							<TouchableOpacity onPress={() => setModalVisible(false)}>
+								<Text style={{ color: 'red' }}>Отмена</Text>
+							</TouchableOpacity>
+							<TouchableOpacity onPress={handleSaveGoal}>
+								<Text style={{ color: 'green' }}>Сохранить</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
 		</View>
 	)
 }
